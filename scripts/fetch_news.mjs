@@ -59,15 +59,29 @@ export function parseFeed(xml, hint) {
 }
 
 export function extractArticleText(html) {
+  const candidates = [];
+  // 1) structured data
+  const ld = html.match(/"articleBody"\s*:\s*"((?:[^"\\]|\\.)*)"/);
+  if (ld) {
+    try {
+      candidates.push(stripHtml(JSON.parse('"' + ld[1] + '"')));
+    } catch {}
+  }
+  // 2) paragraph blocks
   const paras = [];
-  const re = /class="text_editor_paragraph[^"]*"[^>]*>([\s\S]*?)<\/div>\s*<\/div>/g;
+  const re = /class="text_editor_paragraph[^"]*"[^>]*>([\s\S]*?)<\/div>/g;
   let m;
   while ((m = re.exec(html))) {
     const t = stripHtml(m[1]);
     if (t.length > 20) paras.push(t);
   }
+  if (paras.length) candidates.push(paras.join("\n"));
+  // 3) plain <p> tags as a last resort
+  const ps = [...html.matchAll(/<p[^>]*>([\s\S]*?)<\/p>/g)].map((x) => stripHtml(x[1])).filter((t) => t.length > 40);
+  if (ps.length) candidates.push(ps.join("\n"));
   const sub = html.match(/<meta name="description" content="([^"]*)"/)?.[1];
-  return [sub ? decode(sub) : "", ...paras].filter(Boolean).join("\n").slice(0, 9000);
+  const body = candidates.sort((x, y) => y.length - x.length)[0] ?? "";
+  return [sub ? decode(sub) : "", body].filter(Boolean).join("\n").slice(0, 12000);
 }
 
 const idFor = (url) => createHash("sha1").update(url).digest("hex").slice(0, 12);
@@ -91,18 +105,23 @@ async function fetchFeeds() {
   return [...map.values()].sort((a, b) => b.published_at.localeCompare(a.published_at));
 }
 
-const INSTRUCTIONS = `אתה עורך חדשות שכותב לאנשים מבוגרים בעברית פשוטה וברורה.
-קבל כתבה חדשותית וכתוב גרסה פשוטה שלה.
+const INSTRUCTIONS = `אתה עורך חדשות שמסביר חדשות לאנשים מבוגרים בעברית פשוטה, ברורה ומכבדת.
+קבל כתבה וכתוב אותה מחדש בצורה פשוטה, כך שהיא תכסה את כל הכתבה המקורית: כל העובדות החשובות, השמות, המספרים והדברים העיקריים שנאמרו, לפי סדר הכתבה. אל תקצר את הכתבה לתקציר. הקורא צריך להבין את הסיפור המלא בלי לפתוח את הכתבה המקורית.
 כללים:
-- מילים יומיומיות ומשפטים קצרים.
-- הסבר כל מושג קשה בסוגריים בתוך הטקסט, או במילון (glossary).
-- אל תוסיף שום עובדה שלא מופיעה במקור. שמור על המשמעות המקורית ועל טון ניטרלי ורגוע.
-- בלי סלנג ובלי ראשי תיבות. אם יש ראשי תיבות, כתוב אותם במלואם (למשל: צה"ל = צבא ההגנה לישראל).
-- מספרים פשוטים (למשל "כמיליון" במקום "1,023,512").
-- simple_title: כותרת קצרה, רגועה, בלי סנסציה.
-- summary: משפט אחד או שניים קצרים מאוד.
-- chunks: בין 3 ל-6 פסקאות קצרות, כל אחת 1 עד 3 משפטים קצרים. heading: כותרת קטנה של 2-4 מילים, או מחרוזת ריקה.
-- glossary: מילים או מושגים קשים מהכתבה עם הסבר פשוט (0 עד 5 פריטים).
+- משפטים קצרים, בערך 8 עד 14 מילים. רעיון אחד בכל משפט.
+- מילים יומיומיות. כל מושג קשה מוסבר מיד בסוגריים, בפעם הראשונה שהוא מופיע.
+- אסור להוסיף עובדות שלא כתובות בכתבה, ואסור לנחש. אם משהו לא ברור, השמט אותו.
+- טון ניטרלי ורגוע, בלי סנסציה ובלי דעה אישית.
+- אסור להשתמש בראשי תיבות ובקיצורים. כתוב הכול במלואו: מנהל כללי (במקום קיצור), צבא ההגנה לישראל, שירות הביטחון הכללי, ראש הממשלה, ועדת החוץ והביטחון, וכן הלאה.
+- אסור להשתמש בתו מרכאות כפולות בשום מקום בטקסט. כתוב מה שנאמר בלי מרכאות, בניסוח עקיף (למשל: השר אמר שהוא יפעל מיד).
+- כתוב רק בעברית ובאותיות עבריות. שמות זרים אפשר לכתוב בעברית. מספרים בספרות.
+- מספרים פשוטים (למשל: כמיליון במקום מספר ארוך).
+- כל פסקה חייבת להיות שלמה ולהסתיים בנקודה.
+שדות:
+- simple_title: כותרת קצרה ורגועה, עד 10 מילים.
+- summary: שני משפטים קצרים שמסכמים מה קרה.
+- chunks: בין 4 ל-10 פסקאות, לפי אורך הכתבה. כל פסקה 2 עד 4 משפטים קצרים. heading: כותרת קטנה של 2 עד 4 מילים.
+- glossary: עד 5 מושגים קשים שמופיעים בכתבה, עם הסבר פשוט. רק מושגים שמופיעים בכתבה עצמה.
 - category: security (ביטחון, צבא, מלחמה, טרור), economy (כלכלה, כסף, מחירים), health (בריאות), world (חדשות מחו"ל), science (מדע וטכנולוגיה), אחרת other.`;
 
 const SCHEMA = {
@@ -131,19 +150,34 @@ const SCHEMA = {
   },
 };
 
-async function simplify(title, text) {
+function problems(s, sourceLen) {
+  const strs = [s.simple_title, s.summary, ...s.chunks.flatMap((c) => [c.heading, c.text]), ...(s.glossary ?? []).flatMap((g) => [g.term, g.plain_explanation])];
+  if (!s.simple_title || !s.summary) return "missing title or summary";
+  if (strs.some((t) => /[\u0600-\u06FF]/.test(t ?? ""))) return "contains non-Hebrew letters";
+  if (strs.some((t) => /["\u05F4]/.test(t ?? ""))) return "contains double quotation marks";
+  if (!Array.isArray(s.chunks) || s.chunks.length < (sourceLen > 1200 ? 4 : 2)) return "too few paragraphs";
+  for (const c of s.chunks) {
+    const t = (c.text ?? "").trim().replace(/[)\s]+$/, "");
+    if (!/[.?!:]$/.test(t)) return "a paragraph is cut off: " + t.slice(-30);
+  }
+  const words = s.chunks.reduce((n, c) => n + (c.text ?? "").split(/\s+/).length, 0);
+  if (sourceLen > 1500 && words < 120) return "too short";
+  return null;
+}
+
+async function callGemini(userText) {
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`;
   const body = {
     systemInstruction: { parts: [{ text: INSTRUCTIONS }] },
-    contents: [{ role: "user", parts: [{ text: `כותרת: ${title}\n\nטקסט הכתבה:\n${text}` }] }],
-    generationConfig: { responseMimeType: "application/json", responseSchema: SCHEMA, temperature: 0.3 },
+    contents: [{ role: "user", parts: [{ text: userText }] }],
+    generationConfig: { responseMimeType: "application/json", responseSchema: SCHEMA, temperature: 0.3, maxOutputTokens: 8192 },
   };
   for (let attempt = 0; attempt < 3; attempt++) {
     const res = await fetch(url, {
       method: "POST",
       headers: { "content-type": "application/json", "x-goog-api-key": KEY },
       body: JSON.stringify(body),
-      signal: AbortSignal.timeout(60000),
+      signal: AbortSignal.timeout(90000),
     });
     if (res.status === 429 || res.status >= 500) {
       await new Promise((r) => setTimeout(r, 8000 * (attempt + 1)));
@@ -151,19 +185,34 @@ async function simplify(title, text) {
     }
     if (!res.ok) throw new Error(`gemini ${res.status}: ${(await res.text()).slice(0, 200)}`);
     const json = await res.json();
-    const out = json.candidates?.[0]?.content?.parts?.map((p) => p.text ?? "").join("") ?? "";
-    const s = JSON.parse(out);
-    if (!s.simple_title || !Array.isArray(s.chunks) || s.chunks.length === 0) throw new Error("bad AI output");
-    return s;
+    return json.candidates?.[0]?.content?.parts?.map((p) => p.text ?? "").join("") ?? "";
   }
   throw new Error("gemini: rate limited");
+}
+
+export async function simplify(title, text) {
+  let hint = "";
+  let last = "no output";
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const out = await callGemini(`כותרת: ${title}\n\nטקסט הכתבה:\n${text}${hint}`);
+    try {
+      const s = JSON.parse(out);
+      const p = problems(s, text.length);
+      if (!p) return s;
+      last = p;
+    } catch {
+      last = "invalid JSON";
+    }
+    hint = `\n\nהניסיון הקודם נפסל כי: ${last}. תקן זאת: כתוב פסקאות שלמות שמסתיימות בנקודה, בלי מרכאות כפולות, בלי ראשי תיבות, בעברית בלבד.`;
+  }
+  throw new Error("quality check failed: " + last);
 }
 
 async function main() {
   if (!KEY) throw new Error("GEMINI_API_KEY is not set");
   let existing = [];
   try {
-    existing = JSON.parse(await readFile(OUT, "utf8")).articles ?? [];
+    existing = (JSON.parse(await readFile(OUT, "utf8")).articles ?? []).filter((a) => a.v === 2); // older versions are re-processed
   } catch {}
   const seen = new Set(existing.map((a) => a.source_url));
 
@@ -175,20 +224,22 @@ async function main() {
     try {
       let text = await get(it.url).then(extractArticleText).catch(() => "");
       if (text.length < 80) text = it.description;
+      console.log(`text length ${text.length}:`, it.url);
       if (text.length < 40) continue;
       const s = await simplify(it.title, text);
       added.push({
+        v: 2,
         id: idFor(it.url),
         source_url: it.url,
         published_at: it.published_at,
         category: CATEGORIES.includes(s.category) ? s.category : it.hint,
         simple_title: s.simple_title,
         summary: s.summary,
-        chunks: s.chunks.slice(0, 6),
+        chunks: s.chunks.slice(0, 10),
         glossary: (s.glossary ?? []).slice(0, 5),
       });
       console.log("ok:", s.simple_title);
-      await new Promise((r) => setTimeout(r, 4000)); // stay under free-tier rate limits
+      await new Promise((r) => setTimeout(r, 5000)); // stay under free-tier rate limits
     } catch (e) {
       console.error("failed:", it.url, String(e));
     }
