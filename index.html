@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>חדשות בקלות</title>
+<meta name="description" content="חדשות מישראל בעברית פשוטה, באותיות גדולות וברורות.">
+<meta name="theme-color" content="#2f5f57">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;600;700;800&display=swap">
+<link rel="stylesheet" href="style.css">
+<script>
+try{var s=localStorage.getItem("easy-news-font");if(s)document.documentElement.style.setProperty("--reader-size",s+"px");if(localStorage.getItem("easy-news-contrast")==="1")document.documentElement.classList.add("dark")}catch(e){}
+</script>
+</head>
+<body>
+<header class="site-header">
+  <div class="wrap">
+    <div class="row">
+      <a href="#/" class="brand">חדשות בקלות</a>
+      <button id="contrast" class="btn soft" type="button" aria-pressed="false">ניגודיות גבוהה</button>
+    </div>
+    <div class="row sizes" role="group" aria-label="גודל האותיות">
+      <span class="label">גודל אותיות:</span>
+      <button class="size" type="button" data-size="22">א</button>
+      <button class="size" type="button" data-size="26">א+</button>
+      <button class="size" type="button" data-size="30">א++</button>
+      <button class="size" type="button" data-size="34">א+++</button>
+    </div>
+  </div>
+</header>
+<div id="app" class="wrap" aria-live="polite"></div>
+<footer class="site-footer">
+  <div class="wrap">
+    <p>הסיכומים נכתבו בעזרת בינה מלאכותית ועשויים להיות לא מדויקים. תמיד אפשר לקרוא את הכתבה המקורית.</p>
+    <p><strong>הכתבות באדיבות <a href="https://www.ynet.co.il" target="_blank" rel="noopener noreferrer">ynet</a></strong></p>
+  </div>
+</footer>
+<script src="app.js"></script>
+</body>
+</html>
